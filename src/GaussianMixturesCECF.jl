@@ -1,0 +1,5 @@
+module GaussianMixturesCECF
+
+
+
+end # module
