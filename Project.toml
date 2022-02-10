@@ -2,3 +2,11 @@ name = "GaussianMixturesCECF"
 uuid = "222f62a6-4081-4355-92d0-0f9d513a0c2b"
 authors = ["ForceBru <ForceBru@users.noreply.github.com>"]
 version = "0.1.0"
+
+[deps]
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+
+[compat]
+Optim = "^1.6.0"
+DocStringExtensions = "^0.8.0"
