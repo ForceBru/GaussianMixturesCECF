@@ -15,4 +15,6 @@ include("Misc.jl")
 include("Distance.jl")
 include("Fit.jl")
 
+include("FitExpGrad.jl")
+
 end # module
