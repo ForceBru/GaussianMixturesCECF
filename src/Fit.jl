@@ -35,6 +35,7 @@ mutable struct GaussianMixture
     "Parameter upper bounds (set automatically)"
     θ_hi::AV{<:Real}
 
+    "Result of optimization with Optim.jl"
     optim_result
 end
 
@@ -87,6 +88,14 @@ function GaussianMixture(n_components::Integer; sigma_scale::Real=1e-3)
     GaussianMixture(θ0)
 end
 
+function _check_mix_params(θ::AV)
+    params = get_mix_params(θ)
+    p = params.p
+
+    @assert all(>=(0), p)
+    @assert sum(p) ≈ 1
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -102,6 +111,7 @@ function fit_cecf!(
 )::AV{<:Real}
     @assert b > 0
     @assert length(θ0) == 3 * gm.K
+    _check_mix_params(θ0)
 
     gm.θ0 .= θ0
 
