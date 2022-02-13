@@ -92,7 +92,7 @@ $(TYPEDSIGNATURES)
 
 Fit Gaussian mixture to `data`.
 
-- `b > 0` is hte smoothing parameter
+- `b > 0` is the smoothing parameter
 - `θ0` is the optional starting point
 - `update_guess::Bool` - replace initial guess with newly found estimates?
 """
