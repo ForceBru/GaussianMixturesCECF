@@ -110,7 +110,7 @@ function fit_cecf!(
     θ0::AV{<:Real}=gm.θ0, update_guess::Bool=false
 )::AV{<:Real}
     @assert b > 0
-    @assert length(θ0) == 3 * gm.K
+    @assert length(θ0) == 3gm.K
     _check_mix_params(θ0)
 
     gm.θ0 .= θ0
@@ -122,6 +122,8 @@ function fit_cecf!(
     gm.optim_result = optimize(gm.objective, gm.constraints, gm.θ0, IPNewton())
 
     θ_est = Optim.minimizer(gm.optim_result)
+    # Ensure non-negativity of standard deviations
+    @. θ_est[end-gm.K+1:end] = abs(θ_est[end-gm.K+1:end])
 
     if update_guess
         gm.θ0 .= θ_est
@@ -129,3 +131,12 @@ function fit_cecf!(
 
     θ_est
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Convenience wrapper for `fit_cecf!` to quickly fit mixtures of `K` components
+without creating the `GaussianMixture` object.
+"""
+fit_cecf(K::Integer, data::AV{<:Real}; b::Real) =
+    fit_cecf!(GaussianMixture(K), data; b)
