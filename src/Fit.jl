@@ -17,11 +17,11 @@ mutable struct GaussianMixture
 
     Format: `[weights; means; standard deviations;]`
     """
-    θ0::AV{<:Real}
+    θ0::Vector{<:Real}
     "Parameter lower bounds (set automatically)"
-    θ_lo::AV{<:Real}
+    θ_lo::Vector{<:Real}
     "Parameter upper bounds (set automatically)"
-    θ_hi::AV{<:Real}
+    θ_hi::Vector{<:Real}
 
     "Result of optimization with Optim.jl"
     optim_result
