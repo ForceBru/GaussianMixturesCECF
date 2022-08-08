@@ -7,7 +7,7 @@ module GaussianMixturesCECF
 export GaussianMixture, fit_cecf!, fit_cecf, get_mix_params
 
 using DocStringExtensions
-using Optim
+using Optim, ComponentArrays
 
 const AV = AbstractVector{T} where T
 
