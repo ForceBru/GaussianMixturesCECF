@@ -67,7 +67,7 @@ function fit_cecf!(mix::GaussianMixture, sample::AV{<:Real}; b::Real, lr::Real=1
     K = mix.K
 
     objective = θ -> distance(sample, θ, b)
-    cfg_grad = ForwardDiff.GradientConfig(objective, mix.θ0, ForwardDiff.Chunk{K}())
+    cfg_grad = ForwardDiff.GradientConfig(objective, mix.θ0, ForwardDiff.Chunk{3K}())
 
     θ = copy(mix.θ0)
     θ_lag = zero(θ)
@@ -87,7 +87,7 @@ function fit_cecf!(mix::GaussianMixture, sample::AV{<:Real}; b::Real, lr::Real=1
         θ[K+1:end] .-= lr .* @view grad[K+1:end]
 
         @. metrics = abs(θ - θ_lag)
-        if itr % 1000 == 0
+        if itr % 10_000 == 0
             metric = maximum(metrics)
             @show itr, objective(θ), metric
         end
