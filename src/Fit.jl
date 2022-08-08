@@ -1,21 +1,9 @@
 """
-$(TYPEDSIGNATURES)
-
-Equality constraint: all weights must sum to one.
-"""
-function constraint!(constr::AV{<:Real}, θ::AV{<:Real})
-    p, _, _ = get_mix_params(θ)
-
-    constr[1] = sum(p) - 1
-    constr
-end
-
-"""
-$(TYPEDEF)
+$TYPEDEF
 
 State of the Gaussian mixture estimator.
 
-$(TYPEDFIELDS)
+$TYPEDFIELDS
 """
 mutable struct GaussianMixture
     objective::Union{Optim.TwiceDifferentiable, Nothing}
@@ -40,7 +28,7 @@ mutable struct GaussianMixture
 end
 
 """
-$(TYPEDSIGNATURES)
+$TYPEDSIGNATURES
 
 Initialize Gaussian mixture with initial guess `θ0`.
 """
@@ -74,7 +62,7 @@ function GaussianMixture(θ0::AV{<:Real})
 end
 
 """
-$(TYPEDSIGNATURES)
+$TYPEDSIGNATURES
 
 Initialize Gaussian mixture with `n_components` components.
 Initialize the initial guess automatically.
@@ -88,6 +76,18 @@ function GaussianMixture(n_components::Integer; sigma_scale::Real=1e-3)
     GaussianMixture(θ0)
 end
 
+"""
+$TYPEDSIGNATURES
+
+Equality constraint: all weights must sum to one.
+"""
+function constraint!(constr::AV{<:Real}, θ::AV{<:Real})
+    p, _, _ = get_mix_params(θ)
+
+    constr[1] = sum(p) - 1
+    constr
+end
+
 function _check_mix_params(θ::AV)
     params = get_mix_params(θ)
     p = params.p
@@ -97,18 +97,24 @@ function _check_mix_params(θ::AV)
 end
 
 """
-$(TYPEDSIGNATURES)
+$TYPEDSIGNATURES
 
 Fit Gaussian mixture to `data`.
 
 - `b > 0` is the smoothing parameter
 - `θ0` is the optional starting point
 - `update_guess::Bool` - replace initial guess with newly found estimates?
+
+Returns a `ComponentVector` with fields:
+
+- `p` - mixture weights
+- `mu` - mixture means
+- `sigma` - mixture standard deviations
 """
 function fit_cecf!(
     gm::GaussianMixture, data::AV{<:Real}; b::Real,
     θ0::AV{<:Real}=gm.θ0, update_guess::Bool=false
-)::AV{<:Real}
+)::ComponentVector{<:Real}
     @assert b > 0
     @assert length(θ0) == 3gm.K
     _check_mix_params(θ0)
@@ -123,17 +129,18 @@ function fit_cecf!(
 
     θ_est = Optim.minimizer(gm.optim_result)
     # Ensure non-negativity of standard deviations
-    @. θ_est[end-gm.K+1:end] = abs(θ_est[end-gm.K+1:end])
+    @. θ_est[2gm.K+1:end] = abs(θ_est[2gm.K+1:end])
 
     if update_guess
         gm.θ0 .= θ_est
     end
 
-    θ_est
+    ax = Axis(p=1:gm.K, mu=(gm.K+1):(2gm.K), sigma=(2gm.K+1):(3gm.K))
+    ComponentVector(θ_est, ax)
 end
 
 """
-$(TYPEDSIGNATURES)
+$TYPEDSIGNATURES
 
 Convenience wrapper for `fit_cecf!` to quickly fit mixtures of `K` components
 without creating the `GaussianMixture` object.
