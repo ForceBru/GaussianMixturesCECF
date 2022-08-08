@@ -1,5 +1,5 @@
 """
-$(TYPEDSIGNATURES)
+$TYPEDSIGNATURES
 
 Distance between empirical and theoretical ECFs
 for _one_ observation `r_n`.
@@ -12,7 +12,7 @@ distance_one_obs(p::AV{<:Real}, mu::AV{<:Real}, sigma::AV{<:Real}, r::Real, b::R
     )
 
 """
-$(TYPEDSIGNATURES)
+$TYPEDSIGNATURES
 
 Distance between empirical and theoretical ECFs
 for a sample of observations `obs`.
@@ -31,7 +31,7 @@ function distance(p::AV{<:Real}, mu::AV{<:Real}, sigma::AV{<:Real}, observations
 end
 
 """
-$(TYPEDSIGNATURES)
+$TYPEDSIGNATURES
 
 Same as `distance`, but all mixture parameters
 come from one vector. Used for optimization.
