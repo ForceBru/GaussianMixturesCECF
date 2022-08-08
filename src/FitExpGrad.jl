@@ -56,13 +56,47 @@ function GaussianMixture(θ0::AV{<:Real})
     GaussianMixture(K, θ0)
 end
 
-# Fit the thing w/ exponentiated gradient descent
-# FIXME: SLOW!!
-# The following takes more than 138'000 iterations and MINUTES
-#
-# distr = UnivariateGMM([0, 0], [.2, .3], Categorical([.4, .6]));
-# data = rand(distr, 500);
-# GaussianMixturesCECF.ExpGrad.fit_cecf!(mix, data; b=0.01, lr=0.01, tol=1e-7)
+"""
+Fit the thing w/ exponentiated gradient descent
+FIXME: takes many iterations!!
+
+The following takes more than 100'000 iterations (and ~11 sec)
+
+```
+julia> import Random
+
+julia> rng = Random.MersenneTwister(42);
+
+julia> data = [0.2*randn(rng, 200); 0.3*randn(rng, 300)];
+
+julia> mix = G.ExpGrad.GaussianMixture([.5, .5, 0,0, 0.03, 0.06]);
+
+julia> @time G.ExpGrad.fit_cecf!(mix, data, b=0.01, lr=1e-2, tol=1e-7)
+(itr, objective(θ), metric) = (0, -6.204313248313339, 0.30170437026721425)
+(itr, objective(θ), metric) = (10000, -6.220054193034246, 4.733383557775639e-6)
+(itr, objective(θ), metric) = (20000, -6.2201499761380195, 4.8395758385222365e-6)
+(itr, objective(θ), metric) = (30000, -6.220248726143577, 4.666240635498031e-6)
+(itr, objective(θ), metric) = (40000, -6.220339565989376, 4.155679707962268e-6)
+(itr, objective(θ), metric) = (50000, -6.220410731193607, 3.347766860506418e-6)
+(itr, objective(θ), metric) = (60000, -6.220456271074969, 2.4179164314352963e-6)
+(itr, objective(θ), metric) = (70000, -6.22047977348448, 1.5832682859484581e-6)
+(itr, objective(θ), metric) = (80000, -6.220489808180939, 9.63726648928187e-7)
+(itr, objective(θ), metric) = (90000, -6.220493528168738, 5.595421378457033e-7)
+(itr, objective(θ), metric) = (100000, -6.22049478496818, 3.1588606314025824e-7)
+(itr, objective(θ), metric) = (110000, -6.220495186368714, 1.7551534775561706e-7)
+ 10.290548 seconds (6.69 M allocations: 344.473 MiB, 0.60% gc time)
+6-element Vector{Float64}:
+  0.7983720380273869
+  0.20162796197261318
+  0.0055596215036916195
+ -0.06912247031142632
+  0.23191746816469924
+  0.4319762236372301
+```
+
+`6.69 M allocations: 344.473 MiB` - that's a lot of allocations.
+Bet this is `ForwardDiff.gradient!`'s fault.
+"""
 function fit_cecf!(mix::GaussianMixture, sample::AV{<:Real}; b::Real, lr::Real=1e-3, tol::Real=1e-6)
     K = mix.K
 
@@ -79,12 +113,14 @@ function fit_cecf!(mix::GaussianMixture, sample::AV{<:Real}; b::Real, lr::Real=1
         # 1. Compute gradient
         ForwardDiff.gradient!(grad, objective, θ, cfg_grad)
 
-        # 2. Exponentiated grad descent w.r.t. weights
-        θ[1:K] .= @view(θ[1:K]) .* exp.(-lr .* @view grad[1:K])
-        θ[1:K] ./= sum(@view θ[1:K])
+        @views begin
+            # 2. Exponentiated grad descent w.r.t. weights
+            @. θ[1:K] = θ[1:K] * exp(-lr * grad[1:K])
+            θ[1:K] ./= sum(θ[1:K])
 
-        # 3. Gradient descent step w.r.t. everything else
-        θ[K+1:end] .-= lr .* @view grad[K+1:end]
+            # 3. Gradient descent step w.r.t. everything else
+            @. θ[K+1:end] -= lr * grad[K+1:end]
+        end
 
         @. metrics = abs(θ - θ_lag)
         if itr % 10_000 == 0
