@@ -32,17 +32,28 @@ p, mu, sigma = get_mix_params(params_vector)
 If multiple similar mixtures need to be estimated, `GaussianMixture` can keep track of the last estimates and use them as the initial guess for the optimizer. This can increase performance since optimization will likely begin near the optimum:
 
 ```julia
+# 1. Get params for current `data` and save them in `gmm`
 params_vector = fit_cecf!(gmm, data, b=0.01, update_guess=true)
+
+# 2. Automatically use these parameters
+# as initial guess for estimation with `data_new`
+params_vector_new = fit_cecf!(gmm, data_new, b=0.01, update_guess=true)
 ```
 
 One can also supply the initial guess to both `GaussianMixture` and `fit_cecf!`:
 
 ```julia
+using ComponentArrays
+
 # Mixture of 2 components:
-# p1, p2 = 0.5, 0.5
-# mu1, mu2 = 0, 0
-# sigma1, sigma2 = 1e-3, 2e-3
-gmm = GaussianMixture([0.5, 0.5, 0, 0, 1e-3, 2e-3])
+# weights: p1, p2 = 0.5, 0.5
+# means: mu1, mu2 = 0, 0
+# standard deviations: sigma1, sigma2 = 1e-3, 2e-3
+gmm = GaussianMixture(
+    ComponentVector(p=[0.5, 0.5], mu=[0, 0], sigma=[1e-3, 2e-3])
+)
+
+# Can also provide a different initial guess like this
 fit_cecf!(gmm, data, b=0.01, θ0=[0.5, 0.5, -1, 1, 1e-3, 2e-3])
 ```
 
