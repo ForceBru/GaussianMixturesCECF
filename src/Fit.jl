@@ -102,6 +102,7 @@ $TYPEDSIGNATURES
 Fit Gaussian mixture to `data`.
 
 - `b > 0` is the smoothing parameter
+- `tol > 0` is the optimization tolerance
 - `θ0` is the optional starting point
 - `update_guess::Bool` - replace initial guess with newly found estimates?
 
@@ -113,9 +114,11 @@ Returns a `ComponentVector` with fields:
 """
 function fit_cecf!(
     gm::GaussianMixture, data::AV{<:Real}; b::Real,
+    tol::Real=1e-6,
     θ0::AV{<:Real}=gm.θ0, update_guess::Bool=false
 )::ComponentVector{<:Real}
     @assert b > 0
+    @assert tol > 0
     @assert length(θ0) == 3gm.K
     _check_mix_params(θ0)
 
@@ -125,7 +128,10 @@ function fit_cecf!(
     objective(θ::AV{<:Real}) = distance_one_arg(θ, data, b)
     gm.objective = TwiceDifferentiable(objective, θ0, autodiff=:forward)
 
-    gm.optim_result = optimize(gm.objective, gm.constraints, gm.θ0, IPNewton())
+    gm.optim_result = optimize(
+        gm.objective, gm.constraints, gm.θ0, IPNewton(),
+        Optim.Options(x_tol=tol, f_tol=tol)
+    )
 
     θ_est = Optim.minimizer(gm.optim_result)
     # Ensure non-negativity of standard deviations
