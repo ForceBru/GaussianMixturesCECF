@@ -4,7 +4,7 @@ $(README)
 $(EXPORTS)
 """
 module GaussianMixturesCECF
-export GaussianMixture, fit_cecf!, fit_cecf, get_mix_params
+export GaussianMixture, fit_cecf!, fit!, fit_cecf, fit, get_mix_params
 
 using DocStringExtensions
 using Optim, ComponentArrays

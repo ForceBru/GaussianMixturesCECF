@@ -151,5 +151,8 @@ $TYPEDSIGNATURES
 Convenience wrapper for `fit_cecf!` to quickly fit mixtures of `K` components
 without creating the `GaussianMixture` object.
 """
-fit_cecf(K::Integer, data::AV{<:Real}; b::Real) =
-    fit_cecf!(GaussianMixture(K), data; b)
+fit_cecf(K::Integer, data::AV{<:Real}; b::Real, kwargs...) =
+    fit_cecf!(GaussianMixture(K), data; b, kwargs...)
+
+fit = fit_cecf
+fit! = fit_cecf!
