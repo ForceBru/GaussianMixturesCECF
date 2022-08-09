@@ -2,7 +2,7 @@ module ExpGrad
 
 import ..get_mix_params
 
-import ForwardDiff
+import ForwardDiff, Tullio
 
 const AV = AbstractVector{T} where T
 
@@ -24,79 +24,36 @@ penalty(p::AV{<:Real}, mu::AV{<:Real}, sigma::AV{<:Real}, b::Real) =
 
 penalty(θ::AV{<:Real}, b::Real) = penalty(get_mix_params(θ)..., b)
 
-distance(observations::AV{<:Real}, p::AV{<:Real}, mu::AV{<:Real}, sigma::AV{<:Real}, b::Real) =
-    2π * (
-        penalty(p, mu, sigma, b)
-        -2/length(observations) * sum(
-            mixture_pdf(x, p, mu, sigma, b)
-            for x in observations
-        )
-    )
+function distance(observations::AV{<:Real}, p::AV{<:Real}, mu::AV{<:Real}, sigma::AV{<:Real}, b::Real)
+    # Tullio.@tullio penalty[1] := p[k] * p[h] * normal_pdf(mu[k], mu[h], 2b + sigma[k]^2 + sigma[h]^2) grad=Dual
+    Tullio.@tullio tmp[1] := p[k] * normal_pdf(observations[n], mu[k], 2b + sigma[k]^2) grad=Dual
+
+    2π * (-2/length(observations) * sum(tmp) + penalty(p, mu, sigma, b))
+end
 
 distance(observations::AV{<:Real}, θ::AV{<:Real}, b::Real) =
     distance(observations, get_mix_params(θ)..., b)
 
-mutable struct GaussianMixture
+mutable struct GaussianMixture{T<:Real, I<:Integer}
     "Number of mixture components"
-    K::Integer
+    K::I
 
     """
     Initial guess for optimizer.
 
     Format: `[weights; means; standard deviations;]`
     """
-    θ0::AV{<:Real}
+    θ0::Vector{T}
 end
 
-function GaussianMixture(θ0::AV{<:Real})
+function GaussianMixture(θ0::AV{T}) where T<:Real
     @assert length(θ0) % 3 == 0
 
     K = length(θ0) ÷ 3
 
-    GaussianMixture(K, θ0)
+    GaussianMixture{T, typeof(K)}(K, copy(θ0))
 end
 
-"""
-Fit the thing w/ exponentiated gradient descent
-FIXME: takes many iterations!!
-
-The following takes more than 100'000 iterations (and ~11 sec)
-
-```
-julia> import Random
-
-julia> rng = Random.MersenneTwister(42);
-
-julia> data = [0.2*randn(rng, 200); 0.3*randn(rng, 300)];
-
-julia> mix = G.ExpGrad.GaussianMixture([.5, .5, 0,0, 0.03, 0.06]);
-
-julia> @time G.ExpGrad.fit_cecf!(mix, data, b=0.01, lr=1e-2, tol=1e-7)
-(itr, objective(θ), metric) = (0, -6.204313248313339, 0.30170437026721425)
-(itr, objective(θ), metric) = (10000, -6.220054193034246, 4.733383557775639e-6)
-(itr, objective(θ), metric) = (20000, -6.2201499761380195, 4.8395758385222365e-6)
-(itr, objective(θ), metric) = (30000, -6.220248726143577, 4.666240635498031e-6)
-(itr, objective(θ), metric) = (40000, -6.220339565989376, 4.155679707962268e-6)
-(itr, objective(θ), metric) = (50000, -6.220410731193607, 3.347766860506418e-6)
-(itr, objective(θ), metric) = (60000, -6.220456271074969, 2.4179164314352963e-6)
-(itr, objective(θ), metric) = (70000, -6.22047977348448, 1.5832682859484581e-6)
-(itr, objective(θ), metric) = (80000, -6.220489808180939, 9.63726648928187e-7)
-(itr, objective(θ), metric) = (90000, -6.220493528168738, 5.595421378457033e-7)
-(itr, objective(θ), metric) = (100000, -6.22049478496818, 3.1588606314025824e-7)
-(itr, objective(θ), metric) = (110000, -6.220495186368714, 1.7551534775561706e-7)
- 10.290548 seconds (6.69 M allocations: 344.473 MiB, 0.60% gc time)
-6-element Vector{Float64}:
-  0.7983720380273869
-  0.20162796197261318
-  0.0055596215036916195
- -0.06912247031142632
-  0.23191746816469924
-  0.4319762236372301
-```
-
-`6.69 M allocations: 344.473 MiB` - that's a lot of allocations.
-Bet this is `ForwardDiff.gradient!`'s fault.
-"""
 function fit_cecf!(mix::GaussianMixture, sample::AV{<:Real}; b::Real, lr::Real=1e-3, tol::Real=1e-6)
     K = mix.K
 
