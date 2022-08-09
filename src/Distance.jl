@@ -43,7 +43,7 @@ function get_mix_params(θ::AV{<:Real})
 
     p = @view θ[1:K]
 	mu = @view θ[K+1:2K]
-	sigma = abs.(@view θ[2K+1:end])
+	sigma = @view θ[2K+1:end]
 
     (; p, mu, sigma)
 end
