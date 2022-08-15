@@ -1,6 +1,6 @@
 module ExpGrad
 
-import ..get_mix_params
+import ..get_mix_params, ..distance_one_obs
 
 import ForwardDiff, Tullio
 
@@ -9,10 +9,21 @@ const AV = AbstractVector{T} where T
 normal_pdf(x::Real, mu::Real, var::Real) = exp(-(x - mu)^2 / (2var)) / sqrt(2π * var)
 
 function distance(observations::AV{<:Real}, p::AV{<:Real}, mu::AV{<:Real}, sigma::AV{<:Real}, b::Real)
-    Tullio.@tullio penalty[1] := p[k] * p[h] * normal_pdf(mu[k], mu[h], 2b + sigma[k]^2 + sigma[h]^2) grad=Dual
-    Tullio.@tullio tmp[1] := p[k] * normal_pdf(observations[n], mu[k], 2b + sigma[k]^2) grad=Dual
+    # Tullio.@tullio penalty[1] := p[k] * p[h] * normal_pdf(mu[k], mu[h], 2b + sigma[k]^2 + sigma[h]^2) grad=Dual
+    # Tullio.@tullio tmp[1] := p[k] * normal_pdf(observations[n], mu[k], 2b + sigma[k]^2) grad=Dual
 
-    2π * (-2/length(observations) * sum(tmp) + sum(penalty))
+    # -2/length(observations) * sum(tmp) + sum(penalty)
+
+    idx = eachindex(p)
+    
+    penalty = sum(
+        p[k] * p[h] * normal_pdf(mu[k], mu[h], 2b + sigma[k]^2 + sigma[h]^2)
+        for k ∈ idx, h ∈ idx
+    )
+
+    -2/length(observations) * sum(
+        distance_one_obs(p, mu, sigma, r, b) for r ∈ observations
+    ) + penalty
 end
 
 @inline distance(observations::AV{<:Real}, θ::AV{<:Real}, b::Real) =
@@ -36,6 +47,15 @@ function GaussianMixture(θ0::AV{T}) where T<:Real
     K = length(θ0) ÷ 3
 
     GaussianMixture{T, typeof(K)}(K, copy(θ0))
+end
+
+function GaussianMixture(K::Integer)
+    w0 = ones(K) ./ K
+
+    m0 = zeros(K)
+    s0 = (1:K) .* rand()
+
+    GaussianMixture(K, [w0; m0; s0])
 end
 
 abstract type AbstractOptimizer end
@@ -83,9 +103,26 @@ function update_grad!(opt::ADAM{T, U}, grad::AV{<:Real}) where {T, U<:Real}
     nothing
 end
 
+function project_on_probability_simplex(y::AV{<:Real})
+    u = sort(y, rev=true) # u1 ≥ u2 ≥ u3 ...
+    
+    idx = eachindex(u)
+    sums = (1 .- cumsum(u)) ./ idx
+
+    rho = maximum(
+        j
+        for j in eachindex(u)
+        if u[j] + sums[j] > 0
+    )
+    λ = sums[rho]
+
+    max.(y .+ λ, 0)
+end
+
 function fit_cecf!(
     mix::GaussianMixture, sample::AV{<:Real}; b::Real,
     opt::AbstractOptimizer=ADAM(),
+    constr=:exp,
     lr::Real=1e-3, tol::Real=1e-6, quiet::Bool=true
 )
     @assert b ≥ 0
@@ -95,7 +132,7 @@ function fit_cecf!(
     K = mix.K
 
     objective = θ -> distance(sample, θ, b)
-    cfg_grad = ForwardDiff.GradientConfig(objective, mix.θ0, ForwardDiff.Chunk{3K}())
+    cfg_grad = ForwardDiff.GradientConfig(objective, mix.θ0)
 
     θ = copy(mix.θ0)
     θ_lag = zero(θ)
@@ -103,7 +140,9 @@ function fit_cecf!(
     grad = similar(θ)
 
     itr::Int64 = 0
-    metrics = fill(Inf, 100)
+    metric_ok = 0
+    obj_lag = Inf
+    objectives = fill(Inf, 30)
     while true
         itr += 1
         θ_lag .= θ
@@ -115,32 +154,47 @@ function fit_cecf!(
         update_grad!(opt, grad)
 
         @views begin
-            # 3. Exponentiated grad descent w.r.t. weights
-            @. θ[1:K] = θ[1:K] * exp(-lr * opt.grad[1:K])
-            θ[1:K] ./= sum(θ[1:K])
+            if constr == :exp
+                # 3. Exponentiated grad descent w.r.t. weights
+                @. θ[1:K] = θ[1:K] * exp(-lr * opt.grad[1:K])
+                θ[1:K] ./= sum(θ[1:K])
+            elseif constr == :proj
+                # 3. Projected gradient descent
+                @. θ[1:K] -= lr * opt.grad[1:K]
+                θ[1:K] .= project_on_probability_simplex(θ[1:K])
+            else
+                error("fuck")
+            end
 
             # 4. Gradient descent step w.r.t. everything else
             @. θ[K+1:end] -= lr * opt.grad[K+1:end]
         end
 
-        @. metrics[1:end-1] = @view metrics[2:end]
-        metrics[end] = objective(θ)
+        objectives[1:end-1] .= @view objectives[2:end]
+        objectives[end] = objective(θ)
 
-        if all(isfinite, metrics)
+        if all(isfinite, objectives)
             metric = @views sum(
-                abs(new - old)
-                for (new, old) in zip(metrics[2:end], metrics[1:end-1])
+                abs(x - y)
+                for (x, y) in zip(objectives[1:end-1], objectives[2:end])
             )
-
-            (metric < tol) && break
+        else
+            metric = Inf
         end
+
+        (metric < tol) && (metric_ok += 1)
+        (metric_ok == 50) && break
         
         if !quiet && itr % 10_000 == 0
-            @show itr, metric, metrics[end]
+            @show itr, metric, objectives[end]
         end
     end
 
+    @show objective(θ)
+
     θ
 end
+
+fit
 
 end
