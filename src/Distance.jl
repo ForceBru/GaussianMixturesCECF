@@ -1,33 +1,33 @@
 """
 $TYPEDSIGNATURES
 
-Distance between empirical and theoretical ECFs
-for _one_ observation `r_n`.
-"""
-distance_one_obs(p::AV{<:Real}, mu::AV{<:Real}, sigma::AV{<:Real}, r::Real, b::Real)::Real =
-    sum(
-        # Don't allocate
-        p[k] * normal(r, mu[k], 2b + sigma[k]^2)
-        for k ∈ eachindex(p)
-    )
+Distance between theoretical ECF and the Kernel CF Estimator (KCFE),
+which is the CF of a simple kernel density estimator with window size `b>=0`.
 
-"""
-$TYPEDSIGNATURES
+- The theoretical CDF is the model whose parameters we're estimating
+- The KCFE is a dampened version of the empirical CF, where
+the greater the window size `b`, the greater the dampening,
+similar to density smoothing in regular KDE.
 
-Distance between empirical and theoretical ECFs
-for a sample of observations `obs`.
+## Bias-variance tradeoff
+
+- Greater `b` => greater dampening of the empirical CF => greater bias.
+- Lower `b` (maybe zero) => more rough empirical CF =>
+more overfitting => greater variance.
 """
 function distance(p::AV{<:Real}, mu::AV{<:Real}, sigma::AV{<:Real}, observations::AV{<:Real}, b::Real)::Real
-    idx = eachindex(p)
-    
-    penalty = sum(
-        p[k] * p[h] * normal(mu[k], mu[h], 2b + sigma[k]^2 + sigma[h]^2)
-        for k ∈ idx, h ∈ idx
-    )
+    N = length(observations)
 
-    -2/length(observations) * sum(
-        distance_one_obs(p, mu, sigma, r, b) for r ∈ observations
-    ) + penalty
+    loss = -2/N  * sum(
+        p[k] * normal(observations[n], mu[k], b^2 + sigma[k]^2)
+        for n in eachindex(observations), k in eachindex(p)
+    )
+    penalty = sum(
+        p[j] * p[k] * normal(mu[j], mu[k], sigma[k]^2 + sigma[j]^2)
+        for j in eachindex(p), k in eachindex(p)
+    )
+    
+    loss + penalty
 end
 
 """

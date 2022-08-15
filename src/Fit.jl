@@ -5,23 +5,23 @@ State of the Gaussian mixture estimator.
 
 $TYPEDFIELDS
 """
-mutable struct GaussianMixture
+mutable struct GaussianMixture{T<:Real}
     objective::Union{Optim.TwiceDifferentiable, Nothing}
     constraints::Optim.TwiceDifferentiableConstraints
 
     "Number of mixture components"
-    K::Integer
+    K::Int
 
     """
     Initial guess for optimizer.
 
     Format: `[weights; means; standard deviations;]`
     """
-    θ0::Vector{<:Real}
+    θ0::Vector{T}
     "Parameter lower bounds (set automatically)"
-    θ_lo::Vector{<:Real}
+    θ_lo::Vector{T}
     "Parameter upper bounds (set automatically)"
-    θ_hi::Vector{<:Real}
+    θ_hi::Vector{T}
 
     "Result of optimization with Optim.jl"
     optim_result
@@ -32,20 +32,20 @@ $TYPEDSIGNATURES
 
 Initialize Gaussian mixture with initial guess `θ0`.
 """
-function GaussianMixture(θ0::AV{<:Real})
+function GaussianMixture(θ0::AV{T}) where T<:Real
     @assert length(θ0) % 3 == 0
 
     K = length(θ0) ÷ 3
-    unbound_lo = fill(-Inf, K)
-    unbound_hi = fill(Inf, K)
+    unbound_lo = fill(T(-Inf), K)
+    unbound_hi = fill(T(Inf), K)
 
     # [weights; means; standard deviations]
     # Weights are between 0 and 1
     # Means are obviously unbounded
     # Standard deviations are unbounded TOO
     # because they'll be squared when computing distances.
-    θ_lo = [zeros(K); unbound_lo; unbound_lo]
-    θ_hi = [ ones(K); unbound_hi; unbound_hi]
+    θ_lo = [zeros(T, K); unbound_lo; unbound_lo]
+    θ_hi = [ ones(T, K); unbound_hi; unbound_hi]
 
     dfc = TwiceDifferentiableConstraints(
 		constraint!,
@@ -53,7 +53,7 @@ function GaussianMixture(θ0::AV{<:Real})
         [0.0], [0.0], # constraint bounds: equality constraint!
         :forward # use autodiff
 	)
-    GaussianMixture(
+    GaussianMixture{T}(
         nothing, dfc, # no objective yet
         K,
         θ0, θ_lo, θ_hi,
