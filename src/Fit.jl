@@ -5,23 +5,23 @@ State of the Gaussian mixture estimator.
 
 $TYPEDFIELDS
 """
-mutable struct GaussianMixture
+mutable struct GaussianMixture{T<:Real}
     objective::Union{Optim.TwiceDifferentiable, Nothing}
     constraints::Optim.TwiceDifferentiableConstraints
 
     "Number of mixture components"
-    K::Integer
+    K::Int
 
     """
     Initial guess for optimizer.
 
     Format: `[weights; means; standard deviations;]`
     """
-    θ0::Vector{<:Real}
+    θ0::Vector{T}
     "Parameter lower bounds (set automatically)"
-    θ_lo::Vector{<:Real}
+    θ_lo::Vector{T}
     "Parameter upper bounds (set automatically)"
-    θ_hi::Vector{<:Real}
+    θ_hi::Vector{T}
 
     "Result of optimization with Optim.jl"
     optim_result
@@ -32,20 +32,20 @@ $TYPEDSIGNATURES
 
 Initialize Gaussian mixture with initial guess `θ0`.
 """
-function GaussianMixture(θ0::AV{<:Real})
+function GaussianMixture(θ0::AV{T}) where T<:Real
     @assert length(θ0) % 3 == 0
 
     K = length(θ0) ÷ 3
-    unbound_lo = fill(-Inf, K)
-    unbound_hi = fill(Inf, K)
+    unbound_lo = fill(T(-Inf), K)
+    unbound_hi = fill(T(Inf), K)
 
     # [weights; means; standard deviations]
     # Weights are between 0 and 1
     # Means are obviously unbounded
     # Standard deviations are unbounded TOO
     # because they'll be squared when computing distances.
-    θ_lo = [zeros(K); unbound_lo; unbound_lo]
-    θ_hi = [ ones(K); unbound_hi; unbound_hi]
+    θ_lo = [zeros(T, K); unbound_lo; unbound_lo]
+    θ_hi = [ ones(T, K); unbound_hi; unbound_hi]
 
     dfc = TwiceDifferentiableConstraints(
 		constraint!,
@@ -53,7 +53,7 @@ function GaussianMixture(θ0::AV{<:Real})
         [0.0], [0.0], # constraint bounds: equality constraint!
         :forward # use autodiff
 	)
-    GaussianMixture(
+    GaussianMixture{T}(
         nothing, dfc, # no objective yet
         K,
         θ0, θ_lo, θ_hi,
@@ -114,18 +114,24 @@ Returns a `ComponentVector` with fields:
 """
 function fit_cecf!(
     gm::GaussianMixture, data::AV{<:Real}; b::Real,
-    tol::Real=1e-6,
+    tol::Real=1e-6, use_log::Bool=false, eps::Real=1e-5,
     θ0::AV{<:Real}=gm.θ0, update_guess::Bool=false
 )::ComponentVector{<:Real}
     @assert b > 0
     @assert tol > 0
+    @assert eps > 0
     @assert length(θ0) == 3gm.K
     _check_mix_params(θ0)
 
     gm.θ0 .= θ0
 
+    constant = distance_constant(data, b)
     # Will MINIMIZE this
-    objective(θ::AV{<:Real}) = distance_one_arg(θ, data, b)
+    objective = if use_log
+        θ->log(distance_one_arg(θ, data, b, constant) + eps)
+    else
+        θ->distance_one_arg(θ, data, b, constant)
+    end
     gm.objective = TwiceDifferentiable(objective, θ0, autodiff=:forward)
 
     gm.optim_result = optimize(
@@ -151,5 +157,8 @@ $TYPEDSIGNATURES
 Convenience wrapper for `fit_cecf!` to quickly fit mixtures of `K` components
 without creating the `GaussianMixture` object.
 """
-fit_cecf(K::Integer, data::AV{<:Real}; b::Real) =
-    fit_cecf!(GaussianMixture(K), data; b)
+fit_cecf(K::Integer, data::AV{<:Real}; b::Real, kwargs...) =
+    fit_cecf!(GaussianMixture(K), data; b, kwargs...)
+
+fit = fit_cecf
+fit! = fit_cecf!
