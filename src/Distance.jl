@@ -1,3 +1,10 @@
+function distance_constant(observations::AV{<:Real}, b::Real)::Real
+    sum(
+        normal(observations[n], observations[m], 2 * b^2)
+        for n in eachindex(observations), m in eachindex(observations)
+    ) / (length(observations)^2)
+end
+
 """
 $TYPEDSIGNATURES
 
@@ -15,7 +22,10 @@ similar to density smoothing in regular KDE.
 - Lower `b` (maybe zero) => more rough empirical CF =>
 more overfitting => greater variance.
 """
-function distance(p::AV{<:Real}, mu::AV{<:Real}, sigma::AV{<:Real}, observations::AV{<:Real}, b::Real)::Real
+function distance(
+    p::AV{<:Real}, mu::AV{<:Real}, sigma::AV{<:Real}, observations::AV{<:Real}, b::Real,
+    constant::Real=distance_constant(observations, b)
+)::Real
     N = length(observations)
 
     loss = -2/N  * sum(
@@ -27,7 +37,7 @@ function distance(p::AV{<:Real}, mu::AV{<:Real}, sigma::AV{<:Real}, observations
         for j in eachindex(p), k in eachindex(p)
     )
     
-    loss + penalty
+    loss + penalty + constant
 end
 
 """
@@ -36,8 +46,11 @@ $TYPEDSIGNATURES
 Same as `distance`, but all mixture parameters
 come from one vector. Used for optimization.
 """
-function distance_one_arg(θ::AV{<:Real}, observations::AV{<:Real}, b::Real)
+function distance_one_arg(
+    θ::AV{<:Real}, observations::AV{<:Real}, b::Real,
+    constant::Real=distance_constant(observations, b)
+)
 	p, mu, sigma = get_mix_params(θ)
 
-	distance(p, mu, sigma, observations, b)
+	distance(p, mu, sigma, observations, b, constant)
 end

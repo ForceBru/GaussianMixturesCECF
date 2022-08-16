@@ -114,18 +114,24 @@ Returns a `ComponentVector` with fields:
 """
 function fit_cecf!(
     gm::GaussianMixture, data::AV{<:Real}; b::Real,
-    tol::Real=1e-6,
+    tol::Real=1e-6, use_log::Bool=false, eps::Real=1e-5,
     θ0::AV{<:Real}=gm.θ0, update_guess::Bool=false
 )::ComponentVector{<:Real}
     @assert b > 0
     @assert tol > 0
+    @assert eps > 0
     @assert length(θ0) == 3gm.K
     _check_mix_params(θ0)
 
     gm.θ0 .= θ0
 
+    constant = distance_constant(data, b)
     # Will MINIMIZE this
-    objective(θ::AV{<:Real}) = distance_one_arg(θ, data, b)
+    objective = if use_log
+        θ->log(distance_one_arg(θ, data, b, constant) + eps)
+    else
+        θ->distance_one_arg(θ, data, b, constant)
+    end
     gm.objective = TwiceDifferentiable(objective, θ0, autodiff=:forward)
 
     gm.optim_result = optimize(
