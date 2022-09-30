@@ -5,6 +5,7 @@ $(EXPORTS)
 """
 module GaussianMixturesCECF
 export GaussianMixture, fit_cecf!, fit!, fit_cecf, fit
+export DistanceKCFE, DistanceXu
 
 using DocStringExtensions
 using Optim, ComponentArrays
