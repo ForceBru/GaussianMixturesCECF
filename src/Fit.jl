@@ -6,8 +6,7 @@ State of the Gaussian mixture estimator.
 $TYPEDFIELDS
 """
 mutable struct GaussianMixture{T<:Real}
-    objective::Union{Optim.TwiceDifferentiable, Nothing}
-    constraints::Optim.TwiceDifferentiableConstraints
+    model::Union{ADNLPModel, Nothing}
 
     "Number of mixture components"
     K::Int
@@ -18,12 +17,10 @@ mutable struct GaussianMixture{T<:Real}
     Format: `[weights; means; standard deviations;]`
     """
     θ0::Vector{T}
-    "Parameter lower bounds (set automatically)"
     θ_lo::Vector{T}
-    "Parameter upper bounds (set automatically)"
     θ_hi::Vector{T}
 
-    "Result of optimization with Optim.jl"
+    "Result of optimization"
     optim_result
 end
 
@@ -47,14 +44,8 @@ function GaussianMixture(θ0::AV{T}) where T<:Real
     θ_lo = [zeros(T, K); unbound_lo; unbound_lo]
     θ_hi = [ ones(T, K); unbound_hi; unbound_hi]
 
-    dfc = TwiceDifferentiableConstraints(
-		constraint!,
-        θ_lo, θ_hi, # parameter bounds
-        [0.0], [0.0], # constraint bounds: equality constraint!
-        :forward # use autodiff
-	)
     GaussianMixture{T}(
-        nothing, dfc, # no objective yet
+        nothing,
         K,
         θ0, θ_lo, θ_hi,
         nothing # no optimization result yet
@@ -81,11 +72,10 @@ $TYPEDSIGNATURES
 
 Equality constraint: all weights must sum to one.
 """
-function constraint!(constr::AV{<:Real}, θ::AV{<:Real})
+function constraint(θ::AV{<:Real})
     p, _, _ = get_mix_params(θ)
 
-    constr[1] = sum(p) - 1
-    constr
+    [sum(p) - 1]
 end
 
 function _check_mix_params(θ::AV)
@@ -132,14 +122,18 @@ function fit!(
     else
         θ->distance_one_arg(kind_type, θ, data, b, constant)
     end
-    gm.objective = TwiceDifferentiable(objective, θ0, autodiff=:forward)
 
-    gm.optim_result = optimize(
-        gm.objective, gm.constraints, gm.θ0, IPNewton(),
-        Optim.Options(x_tol=tol, f_tol=tol)
+    model = ADNLPModel(
+        objective,
+        gm.θ0, gm.θ_lo, gm.θ_hi, # initial guess and bound constraints
+        constraint, [0.0], [0.0] # equality constraint
     )
 
-    θ_est = Optim.minimizer(gm.optim_result)
+    gm.optim_result = Logging.with_logger(Logging.NullLogger()) do
+        percival(model, ctol=tol)
+    end
+
+    θ_est = copy(gm.optim_result.solution)
     # Ensure non-negativity of standard deviations
     @. θ_est[2gm.K+1:end] = abs(θ_est[2gm.K+1:end])
 

@@ -4,13 +4,16 @@ authors = ["ForceBru <ForceBru@users.noreply.github.com>"]
 version = "0.2.0"
 
 [deps]
+ADNLPModels = "54578032-b7ea-4c30-94aa-7cbd1cce6c9a"
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
-Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+Percival = "01435c0c-c90d-11e9-3788-63660f8fbccc"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [compat]
+ADNLPModels = "~0.4"
 ComponentArrays = "~0.13"
 DocStringExtensions = "~0.8, ~0.9"
-Optim = "~1.7"
+Percival = "~0.5"
 julia = "~1.7, ~1.8"

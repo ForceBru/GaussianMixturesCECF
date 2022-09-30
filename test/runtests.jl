@@ -1,6 +1,5 @@
 using Test
 
-import Optim
 using Distributions
 using GaussianMixturesCECF
 
@@ -25,10 +24,9 @@ end
         gmm = GaussianMixture([0.5, 0.5, 0,0, 1e-3, 2e-3])
         estimated = fit!(gmm, data, b=0.01) |> sort_params
 
-        display(gmm.optim_result)
-        @test Optim.converged(gmm.optim_result)
-
+        print(gmm.optim_result)
         @info "Estimation results" correct estimated
+        @test gmm.optim_result.solution_reliable
 
         @test estimated.p ≈ correct.p atol=0.1
         @test estimated.mu ≈ correct.mu atol=0.1
@@ -39,7 +37,8 @@ end
         gmm = GaussianMixture(2) # 2 components
         estimated = fit!(gmm, data, b=0.01) |> sort_params
 
-        @test Optim.converged(gmm.optim_result)
+        @info "Estimation results" correct estimated
+        @test gmm.optim_result.solution_reliable
 
         @test estimated.p ≈ correct.p atol=0.1
         @test estimated.mu ≈ correct.mu atol=0.1
@@ -54,7 +53,8 @@ end
     gmm = GaussianMixture([ones(3) ./ 3; zeros(3); (1:3) .* 1e-3])
     estimated = fit!(gmm, data, b=0.01) |> sort_params
 
-    @test Optim.converged(gmm.optim_result)
+    @info "Estimation results" correct estimated
+    @test gmm.optim_result.solution_reliable
 
     @test estimated.p ≈ correct.p atol=0.1
     @test estimated.mu ≈ correct.mu atol=0.1
