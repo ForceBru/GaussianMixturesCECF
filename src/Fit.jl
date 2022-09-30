@@ -101,7 +101,6 @@ $TYPEDSIGNATURES
 
 Fit Gaussian mixture to `data`.
 
-- `b > 0` is the smoothing parameter
 - `tol > 0` is the optimization tolerance
 - `θ0` is the optional starting point
 - `update_guess::Bool` - replace initial guess with newly found estimates?
@@ -113,24 +112,25 @@ Returns a `ComponentVector` with fields:
 - `sigma` - mixture standard deviations
 """
 function fit!(
-    gm::GaussianMixture, data::AV{<:Real}; b::Real,
+    gm::GaussianMixture, data::AV{<:Real}, kind::DistanceKind;
     tol::Real=1e-6, use_log::Bool=false, eps::Real=1e-5,
     θ0::AV{<:Real}=gm.θ0, update_guess::Bool=false
 )::ComponentVector{<:Real}
-    @assert b > 0
     @assert tol > 0
     @assert eps > 0
     @assert length(θ0) == 3gm.K
     _check_mix_params(θ0)
 
+    kind_type = typeof(kind)
+    b = kind.b
     gm.θ0 .= θ0
 
-    constant = distance_constant(data, b)
+    constant = distance_constant(kind_type, data, b)
     # Will MINIMIZE this
     objective = if use_log
-        θ->log(distance_one_arg(θ, data, b, constant) + eps)
+        θ->log(distance_one_arg(kind_type, θ, data, b, constant) + eps)
     else
-        θ->distance_one_arg(θ, data, b, constant)
+        θ->distance_one_arg(kind_type, θ, data, b, constant)
     end
     gm.objective = TwiceDifferentiable(objective, θ0, autodiff=:forward)
 
@@ -151,11 +151,17 @@ function fit!(
     ComponentVector(θ_est, ax)
 end
 
+fit!(gm::GaussianMixture, data::AV{<:Real}; b::Real, kwargs...) =
+    fit!(gm, data, DistanceKCFE(b); kwargs...)
+
 """
 $TYPEDSIGNATURES
 
 Convenience wrapper for `fit_cecf!` to quickly fit mixtures of `K` components
 without creating the `GaussianMixture` object.
 """
+fit(K::Integer, data::AV{<:Real}, kind::DistanceKind; kwargs...) =
+    fit!(GaussianMixture(K), data, kind; kwargs...)
+
 fit(K::Integer, data::AV{<:Real}; b::Real, kwargs...) =
-    fit!(GaussianMixture(K), data; b, kwargs...)
+    fit(K, data, DistanceKCFE(b))
