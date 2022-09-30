@@ -112,7 +112,7 @@ Returns a `ComponentVector` with fields:
 - `mu` - mixture means
 - `sigma` - mixture standard deviations
 """
-function fit_cecf!(
+function fit!(
     gm::GaussianMixture, data::AV{<:Real}; b::Real,
     tol::Real=1e-6, use_log::Bool=false, eps::Real=1e-5,
     θ0::AV{<:Real}=gm.θ0, update_guess::Bool=false
@@ -157,8 +157,5 @@ $TYPEDSIGNATURES
 Convenience wrapper for `fit_cecf!` to quickly fit mixtures of `K` components
 without creating the `GaussianMixture` object.
 """
-fit_cecf(K::Integer, data::AV{<:Real}; b::Real, kwargs...) =
-    fit_cecf!(GaussianMixture(K), data; b, kwargs...)
-
-fit = fit_cecf
-fit! = fit_cecf!
+fit(K::Integer, data::AV{<:Real}; b::Real, kwargs...) =
+    fit!(GaussianMixture(K), data; b, kwargs...)
