@@ -1,22 +1,32 @@
 # GaussianMixturesCECF
 
-Estimate Gaussian mixture models using the Continuous Empirical Characteristic Function (CECF) method introduced in (Xu & Knight, 2010).
+Estimate Gaussian mixture models using a variation of the Continuous Empirical Characteristic Function (CECF) method introduced in (Xu & Knight, 2010).
 
-The idea is to estimate parameters of a Gaussian mixture by minimizing the _weighted_ "distance" between the empirical characteristic function `CF_n(t)` and the theoretical one `CF(t; theta)`. The distance measure is given by the following integral (see eq. 6 from the paper):
+The idea is to estimate parameters of a Gaussian mixture by minimizing the distance between the _empirical_ characteristic function `CF_n(t)` and the _theoretical_ one `CF(t; theta)`. The distance measure is given by the following integral (see eq. 6 from the paper):
 
-![](img/distance.png)
+![](img/distance.jpeg)
 
 As shown in the paper, for Gaussian mixtures this integral can be solved analytically,
-which results in the following expressions for the distance measure:
+which results in the following expression for the distance measure:
 
-![](img/eqns.png)
+![](img/distance_solved.jpeg)
 
-This is a simplified version of eq. 14 from the paper.
+This is a simplified version of eq. 14 from the paper. The following notation is used in this equation:
 
-- `r` is the vector of data points (real numbers)
+- `theta` are parameters of the mixture:
+    - weights `alpha`,
+    - means `mu`,
+    - variances `sigma^2`;
+- `r` is the vector of data points (real numbers);
 - `b > 0` is the parameter of the weighting function `exp(-b t^2)`, where `t in R` is the argument of the characteristic function.
 
-The paper provides a method of calculating `b` automatically, but this is not yet implemented, so users should supply one explicitly.
+Since multiplying by the weighting function introduces `b` into the _theoretical_ CF as well as the empirical one, one could use a "Kernel Characteristic Function Estimate", which is the characteristic function of the usual kernel density estimate, to keep the `b` only in the empirical CF only:
+
+![](img/distance_mix.jpeg)
+
+This potentially reduces the influence of `b` on the resulting estimate.
+
+The paper provides a method of calculating `b` automatically, but this is not yet implemented, so users should supply `b` explicitly.
 
 ## Usage
 
@@ -25,7 +35,7 @@ The API is Sklearn-like:
 ```julia
 n_components = 3
 gmm = GaussianMixture(n_components)
-params_vector = fit_cecf!(gmm, data, b=0.01)
+params_vector = fit!(gmm, data, b=0.01)
 p, mu, sigma = get_mix_params(params_vector)
 ```
 
@@ -33,11 +43,11 @@ If multiple similar mixtures need to be estimated, `GaussianMixture` can keep tr
 
 ```julia
 # 1. Get params for current `data` and save them in `gmm`
-params_vector = fit_cecf!(gmm, data, b=0.01, update_guess=true)
+params_vector = fit!(gmm, data, b=0.01, update_guess=true)
 
 # 2. Automatically use these parameters
 # as initial guess for estimation with `data_new`
-params_vector_new = fit_cecf!(gmm, data_new, b=0.01, update_guess=true)
+params_vector_new = fit!(gmm, data_new, b=0.01, update_guess=true)
 ```
 
 One can also supply the initial guess to both `GaussianMixture` and `fit_cecf!`:
@@ -54,7 +64,7 @@ gmm = GaussianMixture(
 )
 
 # Can also provide a different initial guess like this
-fit_cecf!(gmm, data, b=0.01, θ0=[0.5, 0.5, -1, 1, 1e-3, 2e-3])
+fit!(gmm, data, b=0.01, θ0=[0.5, 0.5, -1, 1, 1e-3, 2e-3])
 ```
 
 ## References
