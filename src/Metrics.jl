@@ -129,6 +129,40 @@ function (cdf::EmpiricalCDF{T})(x::Real) where T<:Real
     end
 end
 
+# Results of `scipy.special.roots_legendre(9)`
+# https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.roots_legendre.html
+const LEGENDRE_ROOTS = Float64[
+    -0.9681602395076261, -0.8360311073266358, -0.6133714327005904,
+    -0.3242534234038089,  0.                ,  0.3242534234038089,
+     0.6133714327005904,  0.8360311073266358,  0.9681602395076261
+]
+const LEGENDRE_WEIGHTS = Float64[
+    0.0812743883615741, 0.1806481606948576, 0.2606106964029355,
+    0.3123470770400028, 0.3302393550012596, 0.3123470770400028,
+    0.2606106964029355, 0.1806481606948576, 0.0812743883615741
+]
+
+# int_{-1}^1 f(t)dt
+function integrate_gauss(f::Function)::Real
+    return sum(
+        w * f(t)
+        for (w, t) in zip(LEGENDRE_WEIGHTS, LEGENDRE_ROOTS)
+    )
+end
+
+integrate_gauss(f::Function, lo::Real, up::Real) =
+    (up - lo)/2 * integrate_gauss(
+        t->f( ((up - lo) * t + (up + lo)) / 2 )
+    )
+
+function integrate_gauss(f::Function, integration_range::StepRangeLen{<:AbstractFloat})
+    the_range = integration_range
+    return sum(
+        integrate_gauss(f, lo, up)
+        for (lo, up) in zip(the_range[begin:end-1], the_range[begin+1:end])
+    )
+end
+
 function integrate_simpson(f::Function, integration_range::StepRangeLen{<:AbstractFloat})
     @assert iseven(length(integration_range))
 
@@ -142,10 +176,13 @@ function integrate_simpson(f::Function, integration_range::StepRangeLen{<:Abstra
     Δx/3 * (f(xs[begin]) + 4S1 + 2S2 + f(xs[end]))
 end
 
-function wasserstein(params::ComponentVector, F_data, integration_range::StepRangeLen)
+function wasserstein(
+    params::ComponentVector, F_data, integration_range::StepRangeLen;
+    integrate::Function
+)
     F_model(x::Real) = mix_CDF(x, params.p, params.mu, params.sigma)
 
-    integrate_simpson(
+    integrate(
         x->abs(F_data(x) - F_model(x)),
         integration_range
     )
@@ -159,13 +196,17 @@ of the mixture specified by `params` and the empirical CDF of the `data`.
 
 __Lower is better__. Minimum: 0.
 """
-function wasserstein(params::ComponentVector, data::AV; npoints::Integer=5000, mult::Real=10)::Real
-    @assert npoints > 0
+function wasserstein(
+    params::ComponentVector, data::AV;
+    nintervals::Integer=1000, mult::Real=10,
+    integrate=integrate_gauss
+)::Real
+    @assert nintervals > 0
     @assert mult > 0
     min_, max_ = minimum(data), maximum(data)
-    the_range = range(min_ - mult*abs(min_), max_ + mult*abs(max_), npoints)
+    the_range = range(min_ - mult*abs(min_), max_ + mult*abs(max_), nintervals)
 
-    wasserstein(params, EmpiricalCDF(data), the_range)
+    wasserstein(params, EmpiricalCDF(data), the_range; integrate)
 end
 
 end # module
