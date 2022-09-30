@@ -50,7 +50,7 @@ params_vector = fit!(gmm, data, b=0.01, update_guess=true)
 params_vector_new = fit!(gmm, data_new, b=0.01, update_guess=true)
 ```
 
-One can also supply the initial guess to both `GaussianMixture` and `fit_cecf!`:
+One can also supply the initial guess to both `GaussianMixture` and `fit!`:
 
 ```julia
 using ComponentArrays
