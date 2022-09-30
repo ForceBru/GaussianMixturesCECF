@@ -11,7 +11,7 @@ function sample_mixture(params::NamedTuple, N::Integer)
 end
 
 "Sort mixture params w.r.t. weights `p`"
-function sort_params(params::NamedTuple)
+function sort_params(params)
     idx = sortperm(params.p)
 
     (; p=params.p[idx], mu=params.mu[idx], sigma=params.sigma[idx])
@@ -23,7 +23,7 @@ end
 
     @testset "Init with initial guess" begin
         gmm = GaussianMixture([0.5, 0.5, 0,0, 1e-3, 2e-3])
-        estimated = fit_cecf!(gmm, data, b=0.01) |> get_mix_params |> sort_params
+        estimated = fit!(gmm, data, b=0.01) |> sort_params
 
         display(gmm.optim_result)
         @test Optim.converged(gmm.optim_result)
@@ -37,7 +37,7 @@ end
 
     @testset "Init with number of components" begin
         gmm = GaussianMixture(2) # 2 components
-        estimated = fit_cecf!(gmm, data, b=0.01) |> get_mix_params |> sort_params
+        estimated = fit!(gmm, data, b=0.01) |> sort_params
 
         @test Optim.converged(gmm.optim_result)
 
@@ -52,7 +52,7 @@ end
     data = sample_mixture(correct, 1000)
 
     gmm = GaussianMixture([ones(3) ./ 3; zeros(3); (1:3) .* 1e-3])
-    estimated = fit_cecf!(gmm, data, b=0.01) |> get_mix_params |> sort_params
+    estimated = fit!(gmm, data, b=0.01) |> sort_params
 
     @test Optim.converged(gmm.optim_result)
 
