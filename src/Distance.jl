@@ -8,10 +8,11 @@ end
 """
 $TYPEDSIGNATURES
 
-Distance between theoretical ECF and the Kernel CF Estimator (KCFE),
+Distance between theoretical characteristic function (CF)
+and the Kernel CF Estimator (KCFE),
 which is the CF of a simple kernel density estimator with window size `b>=0`.
 
-- The theoretical CDF is the model whose parameters we're estimating
+- The theoretical CF is the model whose parameters we're estimating
 - The KCFE is a dampened version of the empirical CF, where
 the greater the window size `b`, the greater the dampening,
 similar to density smoothing in regular KDE.
@@ -28,16 +29,16 @@ function distance(
 )::Real
     N = length(observations)
 
-    loss = -2/N  * sum(
+    part1 = -2/N  * sum(
         p[k] * normal(observations[n], mu[k], b^2 + sigma[k]^2)
         for n in eachindex(observations), k in eachindex(p)
     )
-    penalty = sum(
+    part2 = sum(
         p[j] * p[k] * normal(mu[j], mu[k], sigma[k]^2 + sigma[j]^2)
         for j in eachindex(p), k in eachindex(p)
     )
     
-    loss + penalty + constant
+    part1 + part2 + constant
 end
 
 """
