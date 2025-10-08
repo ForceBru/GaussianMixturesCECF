@@ -45,7 +45,7 @@ function GaussianMixture(θ0::AV{T}) where T<:Real
     # Standard deviations are unbounded TOO
     # because they'll be squared when computing distances.
     θ_lo = [zeros(T, K); unbound_lo; unbound_lo]
-    θ_hi = [ ones(T, K); unbound_hi; unbound_hi]
+    θ_hi = [ unbound_hi; unbound_hi; unbound_hi]
 
     dfc = TwiceDifferentiableConstraints(
 		constraint!,
@@ -136,7 +136,7 @@ function fit!(
 
     gm.optim_result = optimize(
         gm.objective, gm.constraints, gm.θ0, IPNewton(),
-        Optim.Options(x_tol=tol, f_tol=tol)
+        Optim.Options(x_abstol=tol, f_abstol=tol)
     )
 
     θ_est = Optim.minimizer(gm.optim_result)
